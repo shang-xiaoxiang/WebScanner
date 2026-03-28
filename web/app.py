@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, send_file, Response
+from flask import Flask, render_template, request, jsonify, send_file, Response, make_response
 from flask_socketio import SocketIO, emit
 from core.scanner.scanner import WebScanner
 import json
@@ -26,7 +26,7 @@ scanner = WebScanner()
 def _emit_socket(event, payload):
     """在后台线程中向所有连接的客户端广播事件。"""
     with app.app_context():
-        socketio.emit(event, payload, namespace="/", broadcast=True)
+        socketio.emit(event, payload, namespace="/")
 
 
 def _safe_pdf_text(text):
@@ -260,8 +260,18 @@ def run_scan(task_id, target, scan_type, port_range, scan_strategy):
             {
                 "task_id": task_id,
                 "status": "running",
+                "progress": 85,
+                "message": "正在汇总结果...",
+            },
+        )
+
+        _emit_socket(
+            "scan_update",
+            {
+                "task_id": task_id,
+                "status": "running",
                 "progress": 92,
-                "message": "正在汇总结果与风险评级...",
+                "message": "正在计算风险评级...",
             },
         )
 
@@ -361,21 +371,135 @@ def export_pdf():
     try:
         result = get_result_for_export(data)
         target = (result.get("target") or "unknown").replace("/", "_")
-        pdf = generate_pdf_report(result)
-        buffer = io.BytesIO()
-        pdf.output(buffer)
-        buffer.seek(0)
-        logger.info(f'PDF导出完成: 目标={target}')
-        return send_file(
-            buffer,
-            mimetype='application/pdf',
-            as_attachment=True,
-            download_name=f'webscan_report_{target}.pdf',
+        
+        # 由于fpdf 1.x不支持中文，我们使用HTML导出作为PDF导出的替代方案
+        # 用户可以使用浏览器的打印功能将HTML保存为PDF
+        target = (result.get('target') or 'unknown').replace('/', '_')
+        cdn_html = ''.join(
+            f'<li>{line}</li>' for line in _normalize_cdn_lines(result.get('cdn_info'))
         )
+        
+        # 生成HTML报告（专门为PDF打印优化）
+        html = f"""
+        <!DOCTYPE html>
+        <html lang="zh-CN">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>WebScanner 扫描报告 - {target}</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; margin: 20px; }}
+                h1 {{ color: #333; }}
+                h2 {{ color: #666; margin-top: 30px; }}
+                table {{ border-collapse: collapse; width: 100%; margin-top: 10px; }}
+                th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
+                th {{ background-color: #f2f2f2; }}
+                .info-item {{ margin: 10px 0; }}
+                .label {{ font-weight: bold; }}
+                @media print {{
+                    body {{ margin: 0; }}
+                    .no-print {{ display: none; }}
+                }}
+            </style>
+        </head>
+        <body>
+            <h1>WebScanner 扫描报告</h1>
+            
+            <h2>基本信息</h2>
+            <div class="info-item"><span class="label">目标:</span> {result.get('target', '-')}</div>
+            <div class="info-item"><span class="label">IP地址:</span> {result.get('ip', '-')}</div>
+            <div class="info-item"><span class="label">URL:</span> {result.get('url', '-')}</div>
+            <div class="info-item"><span class="label">状态码:</span> {result.get('status_code', '-')}</div>
+            <div class="info-item"><span class="label">扫描时间:</span> {result.get('scan_time', '-')}</div>
+            
+            <h2>服务器信息</h2>
+            <ul>
+                {''.join([f'<li>{server}</li>' for server in result.get('server_info', [])])}
+                {'' if result.get('server_info', []) else '<li>未识别到服务器类型</li>'}
+            </ul>
+            
+            <h2>CMS 框架</h2>
+            <ul>
+                {''.join([f'<li>{cms}</li>' for cms in result.get('cms_info', [])])}
+                {'' if result.get('cms_info', []) else '<li>未识别到CMS框架</li>'}
+            </ul>
+            
+            <h2>安全防护</h2>
+            <ul>
+                {''.join([f'<li>{waf}</li>' for waf in result.get('waf_info', [])])}
+                {'' if result.get('waf_info', []) else '<li>未检测到WAF</li>'}
+            </ul>
+            
+            <h2>编程语言</h2>
+            <ul>
+                {''.join([f'<li>{lang}</li>' for lang in result.get('programming_languages', [])])}
+                {'' if result.get('programming_languages', []) else '<li>未识别到编程语言</li>'}
+            </ul>
+            
+            <h2>中间件</h2>
+            <ul>
+                {''.join([f'<li>{middleware}</li>' for middleware in result.get('middleware', [])])}
+                {'' if result.get('middleware', []) else '<li>未识别到中间件</li>'}
+            </ul>
+            
+            <h2>开放端口</h2>
+            <table>
+                <tr><th>端口</th><th>服务</th></tr>
+                {''.join([f'<tr><td>{port["port"]}</td><td>{port["service"]}</td></tr>' for port in result.get('open_ports', [])])}
+                {'' if result.get('open_ports', []) else '<tr><td colspan="2">未发现开放端口</td></tr>'}
+            </table>
+            
+            <h2>敏感目录</h2>
+            <table>
+                <tr><th>路径</th><th>状态</th></tr>
+                {''.join([f'<tr><td>{path["path"]}</td><td>{path["status"]}</td></tr>' for path in result.get('sensitive_paths', [])])}
+                {'' if result.get('sensitive_paths', []) else '<tr><td colspan="2">未发现敏感目录</td></tr>'}
+            </table>
+            
+            <h2>子域名</h2>
+            <ul>
+                {''.join([f'<li>{subdomain}</li>' for subdomain in result.get('subdomains', [])])}
+                {'' if result.get('subdomains', []) else '<li>未发现子域名</li>'}
+            </ul>
+            
+            <h2>CDN 信息</h2>
+            <ul>
+                {cdn_html if cdn_html else '<li>未检测到 CDN</li>'}
+            </ul>
+            
+            <h2>漏洞信息</h2>
+            <ul>
+                {''.join([f'<li>{vuln}</li>' for vuln in result.get('vulnerabilities', [])])}
+                {'' if result.get('vulnerabilities', []) else '<li>未检测到漏洞</li>'}
+            </ul>
+            
+            <h2>WHOIS 信息</h2>
+            <table>
+                <tr><th>键</th><th>值</th></tr>
+                {''.join([f'<tr><td>{key}</td><td>{value}</td></tr>' for key, value in result.get('whois_info', {}).items() if value and value != 'None' and value != '[]'])}
+                {'' if result.get('whois_info', {}) else '<tr><td colspan="2">未获取到 WHOIS 信息</td></tr>'}
+            </table>
+            
+            <div class="no-print" style="margin-top: 20px; padding: 10px; background-color: #f0f0f0; border-left: 4px solid #667eea;">
+                <p><strong>提示：</strong>请使用浏览器的打印功能（Ctrl+P）将此页面保存为PDF文件。</p>
+            </div>
+        </body>
+        </html>
+        """
+        
+        buffer = io.BytesIO()
+        buffer.write(html.encode('utf-8'))
+        buffer.seek(0)
+        
+        logger.info(f'HTML导出完成（PDF替代方案）: 目标={target}')
+        response = make_response(buffer.getvalue())
+        response.headers['Content-Type'] = 'text/html'
+        response.headers['Content-Disposition'] = f'attachment; filename=webscan_report_{target}.html'
+        return response
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     except Exception as e:
-        logger.error(f'PDF导出失败: 错误={str(e)}')
+        logger.error(f'HTML导出失败: 错误={str(e)}')
         return jsonify({'error': str(e)}), 500
 
 
@@ -577,12 +701,10 @@ def export_json():
         buffer.write(json.dumps(result, ensure_ascii=False, indent=2).encode('utf-8'))
         buffer.seek(0)
         logger.info(f'JSON导出完成: 目标={target}')
-        return send_file(
-            buffer,
-            mimetype='application/json',
-            as_attachment=True,
-            download_name=f'webscan_report_{target}.json'
-        )
+        response = make_response(buffer.getvalue())
+        response.headers['Content-Type'] = 'application/json'
+        response.headers['Content-Disposition'] = f'attachment; filename=webscan_report_{target}.json'
+        return response
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     except Exception as e:
@@ -598,8 +720,12 @@ def export_csv():
         target = (result.get('target') or 'unknown').replace('/', '_')
         
         # 创建字节流
-        buffer = io.StringIO()
-        writer = csv.writer(buffer)
+        buffer = io.BytesIO()
+        # 写入UTF-8 BOM，让Excel正确识别UTF-8编码
+        buffer.write('\ufeff'.encode('utf-8'))
+        # 使用TextIOWrapper包装BytesIO，以便csv模块使用
+        text_buffer = io.TextIOWrapper(buffer, encoding='utf-8', newline='')
+        writer = csv.writer(text_buffer)
         
         # 写入基本信息
         writer.writerow(['目标', result.get('target', '-')])
@@ -675,6 +801,8 @@ def export_csv():
             if value and value != 'None' and value != '[]':
                 writer.writerow([key, value])
         
+        # 刷新TextIOWrapper并获取BytesIO的内容
+        text_buffer.flush()
         buffer.seek(0)
         
         logger.info(f'CSV导出完成: 目标={target}')
@@ -807,12 +935,10 @@ def export_html():
         buffer.seek(0)
         
         logger.info(f'HTML导出完成: 目标={target}')
-        return send_file(
-            buffer,
-            mimetype='text/html',
-            as_attachment=True,
-            download_name=f'webscan_report_{target}.html'
-        )
+        response = make_response(buffer.getvalue())
+        response.headers['Content-Type'] = 'text/html'
+        response.headers['Content-Disposition'] = f'attachment; filename=webscan_report_{target}.html'
+        return response
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     except Exception as e:

@@ -1,31 +1,68 @@
 # WebScanner - Web指纹识别与资产探测工具
 
 ## 项目简介
-WebScanner 是一个基于 Python Flask 的 Web 指纹识别与资产探测工具，可以自动扫描目标域名或 IP 的开放端口、识别服务器类型、CMS 框架以及检测敏感目录。
+WebScanner 是一个基于 Python Flask 的 Web 指纹识别与资产探测工具，可以自动扫描目标域名或 IP 的开放端口、识别服务器类型、CMS 框架以及检测敏感目录。项目采用 Vue3 + Bootstrap 重构前端界面，提供实时进度反馈、结果分级展示、历史记录管理等功能。
 
 ## 功能特性
-- 端口扫描：检测常用端口的开放状态
-- 服务器识别：识别 Apache、Nginx、IIS 等服务器类型
-- CMS 框架识别：识别 WordPress、Discuz、Dedecms 等常见 CMS
-- 敏感目录检测：扫描常见的敏感路径和目录
-- 两种扫描模式：快速扫描和完整扫描
+
+### 核心扫描功能
+- **端口扫描**：检测常用端口的开放状态，支持 TCP/SYN/UDP 扫描策略
+- **服务器识别**：识别 Apache、Nginx、IIS 等服务器类型
+- **CMS 框架识别**：识别 WordPress、Discuz、Dedecms 等常见 CMS
+- **敏感目录检测**：扫描常见的敏感路径和目录
+- **子域名枚举**：自动发现目标域名的子域名
+- **WHOIS 信息查询**：获取域名的注册信息
+- **漏洞检测**：检测已知的安全漏洞
+
+### 前端交互功能
+- **实时进度反馈**：基于 WebSocket 的实时日志推送，如"正在扫描端口 80..."、"目录 /admin 返回 200 OK"、"指纹识别：WordPress 6.4.1"
+- **分阶段进度条**：按"端口扫描 (30%)→目录扫描 (60%)→指纹识别 (90%)→结果汇总 (100%)"分阶段显示进度
+- **输入校验**：正则校验目标格式（IP/域名/URL），禁止输入特殊字符，实时提示错误信息
+- **操作能力**：新增"暂停/终止"按钮，支持批量导入目标（文本框粘贴多行 IP/域名）
+- **响应式适配**：使用 Bootstrap/Vue3 重构前端，适配 PC/移动端，支持手势操作、自适应布局
+- **结果分级展示**：按风险等级（高/中/低/信息）分类展示结果
+- **结构化导出**：支持导出 JSON/CSV/HTML/PDF 格式的报告
+- **历史记录管理**：数据库存储扫描任务，前端展示任务列表，支持查看/重新扫描/删除历史任务
+- **友好的错误提示与引导**：将错误分为"网络异常""目标异常""系统异常"并给出解决方案，扫描完成后提供优化建议
 
 ## 项目结构
 ```
 WebScanner/
-├── app.py                 # Flask 应用主文件
+├── config/                # 配置文件
+│   ├── fingerprint/       # 指纹库配置
+│   │   ├── default.yaml
+│   │   └── fingerprints.json
+│   └── settings.py        # 全局配置
+├── core/                  # 核心扫描模块
+│   ├── collector/         # 数据收集
+│   │   ├── asset.py       # 资产收集
+│   │   ├── subdomain.py   # 子域名枚举
+│   │   └── whois.py       # WHOIS 查询
+│   ├── scanner/           # 扫描器
+│   │   ├── dir_scanner.py # 目录扫描
+│   │   ├── fingerprint.py # 指纹识别
+│   │   ├── port_scanner.py # 端口扫描
+│   │   └── scanner.py     # 扫描器主逻辑
+│   └── utils/             # 工具函数
+│       ├── async_utils.py # 异步工具
+│       ├── log_utils.py   # 日志工具
+│       └── validate_utils.py # 验证工具
+├── web/                   # Web 应用
+│   ├── app.py             # Flask 应用主文件
+│   ├── static/            # 静态文件
+│   │   └── static/
+│   │       ├── css/
+│   │       │   └── style.css
+│   │       └── js/
+│   │           └── script.js
+│   └── templates/         # 模板文件
+│       └── templates/
+│           └── index.html # 前端页面（Vue3 + Bootstrap）
+├── run.py                 # 启动脚本
 ├── requirements.txt       # 项目依赖
-├── core/
-│   ├── __init__.py
-│   ├── fingerprint.py     # 指纹库
-│   └── scanner.py         # 扫描器逻辑
-├── templates/
-│   └── index.html         # 前端页面
-└── static/
-    ├── css/
-    │   └── style.css      # 样式文件
-    └── js/
-        └── script.js      # JavaScript 脚本
+├── Dockerfile             # Docker 配置
+├── docker-compose.yml     # Docker Compose 配置
+└── README.md              # 项目说明文档
 ```
 
 ## 安装依赖
@@ -34,19 +71,77 @@ pip install -r requirements.txt
 ```
 
 ## 运行项目
+
+### 方式一：直接运行
 ```bash
-python app.py
+python run.py
 ```
 
-启动后访问 http://localhost:5000 即可使用。
+### 方式二：使用 Docker
+```bash
+# 构建镜像
+docker build -t webscanner .
+
+# 运行容器
+docker run -p 5001:5001 webscanner
+```
+
+### 方式三：使用 Docker Compose
+```bash
+docker-compose up -d
+```
+
+启动后访问 http://localhost:5001 即可使用。
 
 ## 使用说明
+
+### 基本使用
 1. 在输入框中输入目标域名或 IP 地址
-2. 点击"快速扫描"进行基础信息识别
-3. 点击"完整扫描"进行全面的端口和目录扫描
-4. 查看扫描结果，包括服务器信息、CMS 框架、开放端口和敏感目录
+2. 选择扫描类型（全面扫描/快速扫描/自定义扫描）
+3. 配置端口范围和扫描策略
+4. 点击"开始扫描"进行扫描
+5. 查看实时扫描日志和进度
+6. 扫描完成后查看结果，支持按风险等级分类展示
+
+### 高级功能
+- **批量扫描**：在批量导入目标文本框中粘贴多行 IP/域名，一次性扫描多个目标
+- **暂停/终止**：扫描过程中可以暂停或终止扫描，终止后保留已扫描结果
+- **结果导出**：支持导出 JSON/CSV/HTML/PDF 格式的扫描报告
+- **历史记录**：查看历史扫描记录，支持重新扫描或删除历史任务
+- **输入校验**：自动校验目标格式，禁止输入特殊字符，实时提示错误信息
+
+### 扫描结果说明
+- **高风险**：开放 22/3389 端口、/admin 可访问、存在已知漏洞
+- **中风险**：开放非核心高危端口、CMS 版本老旧
+- **低风险**：通用端口开放（80/443）、无敏感目录
+- **信息级**：技术栈、域名备案信息
+
+### 错误处理
+- **网络异常**："目标 192.168.1.1 无法访问，请检查网络或目标是否存活"
+- **目标异常**："目标启用 WAF 拦截，目录扫描结果可能不准确，建议降低并发数"
+- **系统异常**："扫描进程启动失败，请检查 Python 环境是否完整"
+
+### 优化建议
+扫描完成后会针对结果给出建议，如：
+- "目标开放 22 端口，建议禁用密码登录、开启 SSH 密钥认证"
+- "WordPress 版本为 5.0，存在 XSS 漏洞（CVE-2019-9787），建议升级至最新版"
+
+## 技术栈
+- **后端**：Python Flask、Flask-SocketIO、requests、beautifulsoup4、python-nmap、dnspython
+- **前端**：Vue3、Bootstrap 5、Socket.IO、Chart.js
+- **数据库**：SQLite/MySQL（历史记录存储）
+- **部署**：Docker、Docker Compose
 
 ## 注意事项
 - 本工具仅供学习和研究使用
 - 请勿用于非法用途
 - 扫描他人网站前请获得授权
+- 建议在测试环境中使用，避免对生产环境造成影响
+
+## 参考项目
+- [Naabu](https://github.com/projectdiscovery/naabu)：简洁的扫描进度反馈、结果分级
+- [Amass](https://github.com/owasp-amass/amass)：结构化结果导出、历史记录管理
+- [Vue-Admin-Template](https://github.com/PanJiaChen/vue-admin-template)：响应式前端、交互组件
+
+## 许可证
+MIT License
