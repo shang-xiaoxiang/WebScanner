@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebScanner - Web指纹识别与资产探测工具</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>WebScanner</h1>
+            <p class="subtitle">Web指纹识别与资产探测工具</p>
+        </header>
+
+        <main>
+            <div class="scan-section">
+                <div class="input-group">
+                    <input type="text" id="targetInput" placeholder="输入域名或IP地址 (例如: example.com 或 192.168.1.1)">
+                    <button id="quickScanBtn" class="btn btn-secondary">快速扫描</button>
+                    <button id="fullScanBtn" class="btn btn-primary">完整扫描</button>
+                </div>
+                <div id="loading" class="loading hidden">
+                    <div class="spinner"></div>
+                    <p>扫描中，请稍候...</p>
+                </div>
+            </div>
+
+            <div id="resultSection" class="result-section hidden">
+                <div class="result-header">
+                    <h2>扫描结果</h2>
+                    <span id="scanTime"></span>
+                </div>
+
+                <div class="result-grid">
+                    <div class="result-card">
+                        <h3>基本信息</h3>
+                        <div class="info-item">
+                            <span class="label">目标:</span>
+                            <span id="targetInfo"></span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">IP地址:</span>
+                            <span id="ipInfo"></span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">URL:</span>
+                            <span id="urlInfo"></span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">状态码:</span>
+                            <span id="statusCode" class="status-code"></span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">安全防护:</span>
+                            <span id="wafInfo"></span>
+                        </div>
+                    </div>
+
+                    <div class="result-card">
+                        <h3>服务器信息</h3>
+                        <div id="serverInfo" class="tag-container"></div>
+                    </div>
+
+                    <div class="result-card">
+                        <h3>CMS框架</h3>
+                        <div id="cmsInfo" class="tag-container"></div>
+                    </div>
+
+                    <div class="result-card">
+                        <h3>开放端口</h3>
+                        <div id="portsInfo" class="port-list"></div>
+                    </div>
+
+                    <div class="result-card full-width">
+                        <h3>敏感目录</h3>
+                        <div id="sensitivePaths" class="path-list"></div>
+                    </div>
+                </div>
+                
+                <div class="export-btn">
+                    <button id="exportPdfBtn" class="btn">导出 PDF 报告</button>
+                </div>
+            </div>
+
+            <div id="errorSection" class="error-section hidden">
+                <div class="error-message">
+                    <h3>扫描失败</h3>
+                    <p id="errorMessage"></p>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>&copy; 2024 WebScanner. 仅供学习和研究使用。</p>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
