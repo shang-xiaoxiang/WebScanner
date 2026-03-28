@@ -1,276 +1,128 @@
 import re
+import json
+import os
+from bs4 import BeautifulSoup
 
 class FingerprintDB:
-    def __init__(self):
+    def __init__(self, config_path=None):
+        if config_path is None:
+            config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config', 'fingerprints', 'fingerprints.json')
+        self.config_path = config_path
+        self._load_config()
+    
+    def _load_config(self):
+        try:
+            with open(self.config_path, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+            
+            self.server_fingerprints = config.get('servers', {})
+            self.cms_fingerprints = config.get('cms', {})
+            self.programming_languages = config.get('programming_languages', {})
+            self.middleware = config.get('middleware', {})
+            self.waf_fingerprints = config.get('waf', {})
+            self.sensitive_paths = config.get('sensitive_paths', [])
+            
+            # 转换端口为整数
+            self.common_ports = {}
+            for port_str, service in config.get('common_ports', {}).items():
+                try:
+                    self.common_ports[int(port_str)] = service
+                except ValueError:
+                    pass
+        except Exception as e:
+            # 加载失败时使用默认配置
+            self._load_default_config()
+    
+    def _load_default_config(self):
+        # 默认配置作为后备
         self.server_fingerprints = {
             'Apache': {
                 'headers': ['Server: Apache', 'Server: Apache/'],
                 'keywords': ['Apache'],
-                'meta_tags': []
+                'meta_tags': [],
+                'paths': []
             },
             'Nginx': {
                 'headers': ['Server: nginx'],
                 'keywords': ['nginx'],
-                'meta_tags': []
-            },
-            'IIS': {
-                'headers': ['Server: Microsoft-IIS', 'Server: IIS'],
-                'keywords': ['IIS'],
-                'meta_tags': []
-            },
-            'Tomcat': {
-                'headers': ['Server: Apache-Coyote', 'Server: Tomcat'],
-                'keywords': ['Tomcat', 'Apache-Coyote'],
-                'meta_tags': []
-            },
-            'Lighttpd': {
-                'headers': ['Server: lighttpd'],
-                'keywords': ['lighttpd'],
-                'meta_tags': []
-            },
-            'BWS': {
-                'headers': ['Server: BWS/'],
-                'keywords': ['BWS'],
-                'meta_tags': []
-            },
-            'Tengine': {
-                'headers': ['Server: Tengine'],
-                'keywords': ['Tengine'],
-                'meta_tags': []
-            },
-            'AliyunSLB': {
-                'headers': ['Server: AliyunSLB'],
-                'keywords': ['AliyunSLB'],
-                'meta_tags': []
-            },
-            'Tencent': {
-                'headers': ['Server: Tengine', 'Server: QWS'],
-                'keywords': ['Tengine', 'QWS'],
-                'meta_tags': []
-            },
-            'Jingdong': {
-                'headers': ['Server: JDWS'],
-                'keywords': ['JDWS'],
-                'meta_tags': []
-            },
-            'Huawei': {
-                'headers': ['Server: HuaweiCloud'],
-                'keywords': ['HuaweiCloud'],
-                'meta_tags': []
-            },
-            'Cloudflare': {
-                'headers': ['Server: cloudflare', 'Server: Cloudflare'],
-                'keywords': ['cloudflare', 'Cloudflare'],
-                'meta_tags': []
-            },
-            'Akamai': {
-                'headers': ['Server: AkamaiGHost'],
-                'keywords': ['AkamaiGHost', 'Akamai'],
-                'meta_tags': []
-            },
-            'Fastly': {
-                'headers': ['Server: Fastly'],
-                'keywords': ['Fastly'],
-                'meta_tags': []
+                'meta_tags': [],
+                'paths': []
             }
         }
-        
-        self.cms_fingerprints = {
-            'WordPress': {
-                'headers': ['X-Powered-By: WordPress'],
-                'keywords': ['wp-content', 'wp-includes', 'wp-admin'],
-                'meta_tags': ['generator', 'WordPress'],
-                'paths': ['/wp-login.php', '/wp-admin/', '/wp-content/']
-            },
-            'Discuz': {
-                'headers': ['X-Powered-By: Discuz'],
-                'keywords': ['discuz', 'uc_server', 'uc_client'],
-                'meta_tags': ['generator', 'Discuz'],
-                'paths': ['/uc_server/', '/forum.php', '/data/config/']
-            },
-            'Dedecms': {
-                'headers': ['X-Powered-By: Dedecms'],
-                'keywords': ['dedecms', 'data/common.inc.php'],
-                'meta_tags': ['generator', 'DedeCMS'],
-                'paths': ['/dede/', '/plus/', '/data/']
-            },
-            'Drupal': {
-                'headers': ['X-Powered-By: Drupal'],
-                'keywords': ['drupal', 'sites/default'],
-                'meta_tags': ['generator', 'Drupal'],
-                'paths': ['/user/login', '/sites/default/']
-            },
-            'Joomla': {
-                'headers': ['X-Powered-By: Joomla'],
-                'keywords': ['joomla', 'components/com_'],
-                'meta_tags': ['generator', 'Joomla'],
-                'paths': ['/administrator/', '/components/']
-            },
-            'ThinkPHP': {
-                'headers': ['X-Powered-By: ThinkPHP'],
-                'keywords': ['thinkphp', 'think_'],
-                'meta_tags': [],
-                'paths': ['/thinkphp/', '/Public/']
-            },
-            'Struts2': {
-                'headers': [],
-                'keywords': ['struts2', 'struts.action.extension'],
-                'meta_tags': [],
-                'paths': ['/struts/', '/WEB-INF/']
-            },
-            'Spring Boot': {
-                'headers': ['X-Application-Context'],
-                'keywords': ['spring', 'boot'],
-                'meta_tags': [],
-                'paths': ['/actuator/', '/error']
-            }
-        }
-        
-        self.sensitive_paths = [
-            '/admin/',
-            '/administrator/',
-            '/admin.php',
-            '/login.php',
-            '/config.php',
-            '/backup/',
-            '/.git/',
-            '/.svn/',
-            '/web.config',
-            '/.htaccess',
-            '/phpinfo.php',
-            '/test.php',
-            '/install.php',
-            '/wp-config.php',
-            '/readme.html',
-            '/robots.txt',
-            '/sitemap.xml',
-            '/crossdomain.xml',
-            '/api/',
-            '/api/v1/',
-            '/api/v2/',
-            '/uploads/',
-            '/upload/',
-            '/images/',
-            '/static/',
-            '/assets/',
-            '/public/',
-            '/tmp/',
-            '/temp/',
-            '/cache/',
-            '/logs/',
-            '/log/',
-            '/database/',
-            '/db/',
-            '/sql/',
-            '/backup.sql',
-            '/dump.sql',
-            '/data.sql',
-            '/db.sql'
-        ]
-        
+        self.cms_fingerprints = {}
+        self.programming_languages = {}
+        self.middleware = {}
+        self.waf_fingerprints = {}
+        self.sensitive_paths = []
         self.common_ports = {
-            21: 'FTP',
-            22: 'SSH',
-            23: 'Telnet',
-            25: 'SMTP',
-            53: 'DNS',
             80: 'HTTP',
-            110: 'POP3',
-            143: 'IMAP',
-            443: 'HTTPS',
-            445: 'SMB',
-            3306: 'MySQL',
-            3389: 'RDP',
-            5432: 'PostgreSQL',
-            6379: 'Redis',
-            8080: 'HTTP-Alt',
-            8443: 'HTTPS-Alt',
-            8888: 'HTTP',
-            9000: 'HTTP',
-            27017: 'MongoDB'
-        }
-        
-        self.waf_fingerprints = {
-            'Cloudflare': {
-                'headers': ['Server: cloudflare', 'Server: Cloudflare', 'CF-RAY:', 'cf-request-id:'],
-                'keywords': ['cloudflare', 'Cloudflare'],
-                'status_codes': [403, 429]
-            },
-            'AWS WAF': {
-                'headers': ['X-Amz-Waf-Result:'],
-                'keywords': ['AWS WAF', 'amazonaws'],
-                'status_codes': [403]
-            },
-            'ModSecurity': {
-                'headers': ['Server: ModSecurity', 'X-Mod-Security:'],
-                'keywords': ['ModSecurity'],
-                'status_codes': [403]
-            },
-            'Sucuri WAF': {
-                'headers': ['Server: Sucuri/Cloudproxy', 'X-Sucuri-ID:'],
-                'keywords': ['Sucuri'],
-                'status_codes': [403]
-            },
-            'Akamai': {
-                'headers': ['Server: AkamaiGHost'],
-                'keywords': ['Akamai'],
-                'status_codes': [403]
-            },
-            'Fastly': {
-                'headers': ['Server: Fastly'],
-                'keywords': ['Fastly'],
-                'status_codes': [403]
-            },
-            'Incapsula': {
-                'headers': ['X-Incapsula-Request-ID:'],
-                'keywords': ['Incapsula'],
-                'status_codes': [403]
-            },
-            'Tencent Cloud WAF': {
-                'headers': ['Server: tencent', 'X-Tencent-WAF:'],
-                'keywords': ['Tencent Cloud WAF'],
-                'status_codes': [403]
-            },
-            'Aliyun WAF': {
-                'headers': ['Server: AliyunWAF', 'X-Aliyun-WAF:'],
-                'keywords': ['Aliyun WAF'],
-                'status_codes': [403]
-            }
+            443: 'HTTPS'
         }
     
-    def identify_server(self, headers, content):
+    def identify_server(self, headers, content, status_code=None, cookies=None, tls_info=None):
         detected_servers = []
         content_lower = content.lower() if content else ''
         
         for server_name, fingerprint in self.server_fingerprints.items():
-            if self._match_fingerprint(headers, content_lower, fingerprint):
+            if self._match_fingerprint(headers, content_lower, fingerprint, status_code, cookies, tls_info):
                 detected_servers.append(server_name)
         
         return detected_servers
     
-    def identify_cms(self, headers, content, url):
+    def identify_cms(self, headers, content, url, status_code=None, cookies=None, tls_info=None):
         detected_cms = []
         content_lower = content.lower() if content else ''
         url_lower = url.lower() if url else ''
         
         for cms_name, fingerprint in self.cms_fingerprints.items():
-            if self._match_fingerprint(headers, content_lower, fingerprint):
+            if self._match_fingerprint(headers, content_lower, fingerprint, status_code, cookies, tls_info):
                 detected_cms.append(cms_name)
             elif self._match_path(url_lower, fingerprint.get('paths', [])):
                 detected_cms.append(cms_name)
         
         return detected_cms
     
-    def _match_fingerprint(self, headers, content, fingerprint):
+    def _match_fingerprint(self, headers, content, fingerprint, status_code=None, cookies=None, tls_info=None):
         headers_str = str(headers).lower() if headers else ''
+        cookies_str = str(cookies).lower() if cookies else ''
         
+        # 检查响应头
         for header in fingerprint.get('headers', []):
             if header.lower() in headers_str:
                 return True
         
+        # 检查内容关键词
         for keyword in fingerprint.get('keywords', []):
             if keyword.lower() in content:
                 return True
+        
+        # 检查元标签
+        if content:
+            try:
+                soup = BeautifulSoup(content, 'html.parser')
+                for meta_tag in fingerprint.get('meta_tags', []):
+                    if isinstance(meta_tag, list) and len(meta_tag) == 2:
+                        name, content_value = meta_tag
+                        meta = soup.find('meta', {'name': name})
+                        if meta and content_value.lower() in meta.get('content', '').lower():
+                            return True
+            except Exception:
+                pass
+        
+        # 检查状态码
+        if status_code and status_code in fingerprint.get('status_codes', []):
+            return True
+        
+        # 检查Cookie
+        for cookie in fingerprint.get('cookies', []):
+            if cookie.lower() in cookies_str:
+                return True
+        
+        # 检查TLS证书信息
+        if tls_info:
+            for tls_key, tls_value in fingerprint.get('tls', {}).items():
+                if tls_key in tls_info and tls_value.lower() in str(tls_info[tls_key]).lower():
+                    return True
         
         return False
     
@@ -311,3 +163,32 @@ class FingerprintDB:
         
         # 去重
         return list(set(detected_waf))
+    
+    def identify_programming_language(self, headers, content, status_code=None, cookies=None, tls_info=None):
+        detected_languages = []
+        content_lower = content.lower() if content else ''
+        
+        for language, fingerprint in self.programming_languages.items():
+            if self._match_fingerprint(headers, content_lower, fingerprint, status_code, cookies, tls_info):
+                detected_languages.append(language)
+        
+        return detected_languages
+    
+    def identify_middleware(self, headers, content, open_ports, status_code=None, cookies=None, tls_info=None):
+        detected_middleware = []
+        content_lower = content.lower() if content else ''
+        
+        for middleware, fingerprint in self.middleware.items():
+            # 检查端口
+            ports = fingerprint.get('ports', [])
+            for port in ports:
+                if port in open_ports:
+                    detected_middleware.append(middleware)
+                    break
+            
+            # 检查指纹
+            if self._match_fingerprint(headers, content_lower, fingerprint, status_code, cookies, tls_info):
+                detected_middleware.append(middleware)
+        
+        # 去重
+        return list(set(detected_middleware))

@@ -1,0 +1,43 @@
+# Python 自动生成的文件
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# 编辑器配置
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 日志、数据库
+*.log
+*.db
+*.sqlite3
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 测试报告
+*.xml
+
+# 构建文件
+build/
+dist/
+*.egg-info/
+
+# 敏感文件
+*.pem
+*.key
+*.crt
+
+# 临时文件
+tmp/
+temp/
