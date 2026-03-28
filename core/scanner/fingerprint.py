@@ -1,14 +1,17 @@
 import re
 import json
 import os
+import yaml
 from bs4 import BeautifulSoup
 
 class FingerprintDB:
     def __init__(self, config_path=None):
         if config_path is None:
-            config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config', 'fingerprints', 'fingerprints.json')
+            config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'config', 'fingerprints', 'fingerprints.json')
         self.config_path = config_path
+        self.custom_rules_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'config', 'fingerprint', 'custom')
         self._load_config()
+        self._load_custom_rules()
     
     def _load_config(self):
         try:
@@ -32,6 +35,41 @@ class FingerprintDB:
         except Exception as e:
             # 加载失败时使用默认配置
             self._load_default_config()
+    
+    def _load_custom_rules(self):
+        """加载用户自定义的指纹规则"""
+        try:
+            if os.path.exists(self.custom_rules_dir):
+                for filename in os.listdir(self.custom_rules_dir):
+                    if filename.endswith('.yaml') or filename.endswith('.yml'):
+                        file_path = os.path.join(self.custom_rules_dir, filename)
+                        try:
+                            with open(file_path, 'r', encoding='utf-8') as f:
+                                custom_config = yaml.safe_load(f)
+                            
+                            # 合并自定义规则
+                            if 'servers' in custom_config:
+                                self.server_fingerprints.update(custom_config['servers'])
+                            if 'cms' in custom_config:
+                                self.cms_fingerprints.update(custom_config['cms'])
+                            if 'programming_languages' in custom_config:
+                                self.programming_languages.update(custom_config['programming_languages'])
+                            if 'middleware' in custom_config:
+                                self.middleware.update(custom_config['middleware'])
+                            if 'waf' in custom_config:
+                                self.waf_fingerprints.update(custom_config['waf'])
+                            if 'sensitive_paths' in custom_config:
+                                self.sensitive_paths.extend(custom_config['sensitive_paths'])
+                            if 'common_ports' in custom_config:
+                                for port_str, service in custom_config['common_ports'].items():
+                                    try:
+                                        self.common_ports[int(port_str)] = service
+                                    except ValueError:
+                                        pass
+                        except Exception as e:
+                            pass
+        except Exception as e:
+            pass
     
     def _load_default_config(self):
         # 默认配置作为后备
@@ -83,18 +121,33 @@ class FingerprintDB:
         return detected_cms
     
     def _match_fingerprint(self, headers, content, fingerprint, status_code=None, cookies=None, tls_info=None):
+        """使用权重机制匹配指纹"""
         headers_str = str(headers).lower() if headers else ''
         cookies_str = str(cookies).lower() if cookies else ''
+        
+        # 权重配置
+        weights = {
+            'headers': 3,
+            'keywords': 2,
+            'meta_tags': 2,
+            'status_codes': 2,
+            'cookies': 2,
+            'tls': 1,
+            'paths': 4
+        }
+        
+        total_weight = 0
+        required_weight = 5  # 阈值
         
         # 检查响应头
         for header in fingerprint.get('headers', []):
             if header.lower() in headers_str:
-                return True
+                total_weight += weights['headers']
         
         # 检查内容关键词
         for keyword in fingerprint.get('keywords', []):
             if keyword.lower() in content:
-                return True
+                total_weight += weights['keywords']
         
         # 检查元标签
         if content:
@@ -105,26 +158,26 @@ class FingerprintDB:
                         name, content_value = meta_tag
                         meta = soup.find('meta', {'name': name})
                         if meta and content_value.lower() in meta.get('content', '').lower():
-                            return True
+                            total_weight += weights['meta_tags']
             except Exception:
                 pass
         
         # 检查状态码
         if status_code and status_code in fingerprint.get('status_codes', []):
-            return True
+            total_weight += weights['status_codes']
         
         # 检查Cookie
         for cookie in fingerprint.get('cookies', []):
             if cookie.lower() in cookies_str:
-                return True
+                total_weight += weights['cookies']
         
         # 检查TLS证书信息
         if tls_info:
             for tls_key, tls_value in fingerprint.get('tls', {}).items():
                 if tls_key in tls_info and tls_value.lower() in str(tls_info[tls_key]).lower():
-                    return True
+                    total_weight += weights['tls']
         
-        return False
+        return total_weight >= required_weight
     
     def _match_path(self, url, paths):
         for path in paths:
@@ -141,25 +194,10 @@ class FingerprintDB:
     def identify_waf(self, headers, content, status_code):
         detected_waf = []
         content_lower = content.lower() if content else ''
-        headers_str = str(headers).lower() if headers else ''
         
         for waf_name, fingerprint in self.waf_fingerprints.items():
-            # 检查响应头
-            for header in fingerprint.get('headers', []):
-                if header.lower() in headers_str:
-                    detected_waf.append(waf_name)
-                    break
-            
-            # 检查内容
-            for keyword in fingerprint.get('keywords', []):
-                if keyword.lower() in content_lower:
-                    detected_waf.append(waf_name)
-                    break
-            
-            # 检查状态码
-            if status_code in fingerprint.get('status_codes', []):
+            if self._match_fingerprint(headers, content_lower, fingerprint, status_code):
                 detected_waf.append(waf_name)
-                break
         
         # 去重
         return list(set(detected_waf))

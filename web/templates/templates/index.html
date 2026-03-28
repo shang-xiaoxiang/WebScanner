@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebScanner - Web指纹识别与资产探测工具</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Vue3 -->
+    <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <!-- Socket.io -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0f1419;
+            --bg-card: rgba(22, 30, 40, 0.85);
+            --border: rgba(120, 160, 220, 0.18);
+            --text: #e8eef7;
+            --muted: #8b9cb3;
+            --accent: #5b8cff;
+            --accent2: #a78bfa;
+            --success: #34d399;
+            --radius: 14px;
+        }
+        body {
+            font-family: 'DM Sans', 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg);
+            background-image:
+                radial-gradient(ellipse 120% 80% at 50% -20%, rgba(91, 140, 255, 0.25), transparent),
+                radial-gradient(ellipse 60% 40% at 100% 0%, rgba(167, 139, 250, 0.12), transparent);
+            color: var(--text);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1120px;
+        }
+        .header {
+            background: linear-gradient(135deg, #1e3a5f 0%, #2d1b4e 50%, #1a2744 100%);
+            color: white;
+            padding: 2.25rem 1.5rem;
+            border-radius: 0 0 var(--radius) var(--radius);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+            border: 1px solid var(--border);
+            border-top: none;
+        }
+        .header .lead { color: rgba(255,255,255,0.88); font-weight: 500; }
+        .header .text-muted { color: rgba(255,255,255,0.55) !important; }
+        .scan-section, .result-section, .history-section {
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            border-radius: var(--radius);
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+            margin-top: 2rem;
+            border: 1px solid var(--border);
+        }
+        .scan-section h2, .result-section h2, .history-section h2 { color: var(--text); font-weight: 600; }
+        .error-section {
+            background: rgba(239, 68, 68, 0.12);
+            border-left: 4px solid #f87171;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-top: 1rem;
+            color: #fecaca;
+        }
+        .log-section {
+            background: rgba(0, 0, 0, 0.25);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-top: 1rem;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            border: 1px solid var(--border);
+        }
+        .log-item {
+            margin-bottom: 0.5rem;
+            padding: 0.5rem;
+            border-radius: 0.3rem;
+        }
+        .log-item.info { background: rgba(91, 140, 255, 0.15); color: #93c5fd; }
+        .log-item.warning { background: rgba(251, 191, 36, 0.12); color: #fcd34d; }
+        .log-item.error { background: rgba(248, 113, 113, 0.15); color: #fca5a5; }
+        .log-item.success { background: rgba(52, 211, 153, 0.12); color: #6ee7b7; }
+        .progress {
+            height: 0.65rem;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.08);
+            overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, var(--accent), var(--accent2));
+        }
+        .result-card {
+            border-radius: 0.5rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 1rem;
+        }
+        .result-card-header {
+            background: rgba(91, 140, 255, 0.08);
+            border-bottom: 1px solid var(--border);
+            border-radius: 0.5rem 0.5rem 0 0;
+            padding: 1rem;
+        }
+        .result-card-header h3 { font-size: 1.05rem; margin: 0; color: var(--text); }
+        .result-card-body {
+            padding: 1rem;
+            color: var(--muted);
+        }
+        .result-card-body strong { color: var(--text); }
+        .tag {
+            display: inline-block;
+            background: rgba(91, 140, 255, 0.2);
+            color: #a5c4ff;
+            padding: 0.25rem 0.65rem;
+            border-radius: 999px;
+            font-size: 0.8125rem;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+            border: 1px solid rgba(91, 140, 255, 0.25);
+        }
+        .risk-high {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .risk-medium {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .risk-low {
+            background: #d4edda;
+            color: #155724;
+        }
+        .risk-info {
+            background: #e3f2fd;
+            color: #0d47a1;
+        }
+        .port-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .path-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .subdomain-item {
+            padding: 0.5rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .vulnerability-item {
+            padding: 0.5rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .whois-item {
+            display: flex;
+            margin-bottom: 0.5rem;
+        }
+        .whois-label {
+            font-weight: bold;
+            width: 150px;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), #4f6df5);
+            border: none;
+            font-weight: 600;
+        }
+        .btn-primary:hover { filter: brightness(1.08); }
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            border: none;
+        }
+        .btn-outline-primary {
+            border-color: rgba(91, 140, 255, 0.5);
+            color: #a5c4ff;
+        }
+        .btn-outline-primary:hover {
+            background: rgba(91, 140, 255, 0.2);
+            border-color: var(--accent);
+            color: #fff;
+        }
+        .form-control, .form-select {
+            background: rgba(0,0,0,0.25);
+            border: 1px solid var(--border);
+            color: var(--text);
+        }
+        .form-control::placeholder { color: var(--muted); opacity: 0.8; }
+        .form-control:focus, .form-select:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 0.2rem rgba(91, 140, 255, 0.2);
+            background: rgba(0,0,0,0.35);
+            color: var(--text);
+        }
+        .form-label { color: var(--muted); font-weight: 500; }
+        .nav-tabs {
+            border-bottom-color: var(--border);
+        }
+        .nav-tabs .nav-link {
+            color: var(--muted);
+            border: none;
+        }
+        .nav-tabs .nav-link.active {
+            color: var(--accent);
+            border-bottom: 2px solid var(--accent);
+            background: transparent;
+        }
+        .table { color: var(--text); --bs-table-bg: transparent; }
+        .table-striped > tbody > tr:nth-of-type(odd) > * { background: rgba(255,255,255,0.03); }
+        @media (max-width: 768px) {
+            .container {
+                padding: 0 1rem;
+            }
+            .scan-section,
+            .result-section,
+            .history-section {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="app">
+        <!-- 头部 -->
+        <div class="header text-center">
+            <h1>WebScanner</h1>
+            <p class="lead">Web指纹识别与资产探测工具</p>
+            <p class="text-muted">仅用于授权测试，禁止非法使用</p>
+        </div>
+
+        <!-- 扫描配置 -->
+        <div class="scan-section">
+            <h2 class="mb-4">扫描配置</h2>
+            
+            <!-- 输入校验错误提示 -->
+            <div v-if="errorMessage" class="error-section">
+                <div class="error-message">
+                    <h5>输入错误</h5>
+                    <p>{{ errorMessage }}</p>
+                </div>
+            </div>
+            
+            <form @submit.prevent="startScan">
+                <div class="mb-4">
+                    <label for="targetInput" class="form-label">目标域名或IP</label>
+                    <input 
+                        type="text" 
+                        id="targetInput" 
+                        v-model="target" 
+                        class="form-control" 
+                        placeholder="输入域名或IP地址 (例如: example.com 或 192.168.1.1)"
+                        @input="validateTarget"
+                    >
+                    <div v-if="targetError" class="text-danger mt-1">{{ targetError }}</div>
+                </div>
+                
+                <div class="mb-4">
+                    <label class="form-label">扫描类型</label>
+                    <div class="d-flex gap-3">
+                        <div class="form-check">
+                            <input type="radio" id="fullScan" name="scanType" v-model="scanType" value="full" class="form-check-input">
+                            <label for="fullScan" class="form-check-label">全面扫描</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="radio" id="quickScan" name="scanType" v-model="scanType" value="quick" class="form-check-input">
+                            <label for="quickScan" class="form-check-label">快速扫描</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="radio" id="customScan" name="scanType" v-model="scanType" value="custom" class="form-check-input">
+                            <label for="customScan" class="form-check-label">自定义扫描</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <label for="portRange" class="form-label">端口范围</label>
+                    <input 
+                        type="text" 
+                        id="portRange" 
+                        v-model="portRange" 
+                        class="form-control" 
+                        placeholder="例如: 1-1000 或 80,443,8080"
+                    >
+                </div>
+                
+                <div class="mb-4">
+                    <label for="scanStrategy" class="form-label">扫描策略</label>
+                    <select id="scanStrategy" v-model="scanStrategy" class="form-select">
+                        <option value="tcp">TCP 连接扫描</option>
+                        <option value="syn">SYN 扫描</option>
+                        <option value="udp">UDP 扫描</option>
+                    </select>
+                </div>
+                
+                <div class="mb-4">
+                    <label class="form-label">批量导入目标</label>
+                    <textarea 
+                        v-model="batchTargets" 
+                        class="form-control" 
+                        rows="3" 
+                        placeholder="每行一个目标，支持域名或IP地址"
+                    ></textarea>
+                </div>
+                
+                <div class="d-flex gap-2">
+                    <button 
+                        type="submit" 
+                        class="btn btn-primary flex-grow-1"
+                        :disabled="isScanning"
+                    >
+                        {{ isScanning ? '扫描中...' : '开始扫描' }}
+                    </button>
+                    <button 
+                        type="button" 
+                        class="btn btn-danger"
+                        :disabled="!isScanning"
+                        @click="stopScan"
+                    >
+                        停止扫描
+                    </button>
+                </div>
+            </form>
+            
+            <!-- 扫描进度 -->
+            <div v-if="isScanning" class="mt-4">
+                <div class="mb-2 d-flex justify-content-between">
+                    <span>扫描进度</span>
+                    <span>{{ progress }}%</span>
+                </div>
+                <div class="progress">
+                    <div 
+                        class="progress-bar progress-bar-striped progress-bar-animated" 
+                        role="progressbar"
+                        :style="{ width: progress + '%' }"
+                        :aria-valuenow="progress"
+                        aria-valuemin="0"
+                        aria-valuemax="100"
+                    ></div>
+                </div>
+                <div class="mt-2 text-muted">{{ progressMessage }}</div>
+            </div>
+            
+            <!-- 扫描日志 -->
+            <div v-if="isScanning" class="log-section mt-4">
+                <h5>扫描日志</h5>
+                <div 
+                    v-for="(log, index) in logs" 
+                    :key="index"
+                    class="log-item" 
+                    :class="log.type"
+                >
+                    {{ log.message }}
+                </div>
+            </div>
+        </div>
+
+        <!-- 标签页 -->
+        <ul class="nav nav-tabs mt-4" id="myTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button 
+                    class="nav-link active" 
+                    id="result-tab" 
+                    data-bs-toggle="tab" 
+                    data-bs-target="#result" 
+                    type="button" 
+                    role="tab" 
+                    aria-controls="result" 
+                    aria-selected="true"
+                >
+                    扫描结果
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button 
+                    class="nav-link" 
+                    id="history-tab" 
+                    data-bs-toggle="tab" 
+                    data-bs-target="#history" 
+                    type="button" 
+                    role="tab" 
+                    aria-controls="history" 
+                    aria-selected="false"
+                    @click="loadHistory"
+                >
+                    历史记录
+                </button>
+            </li>
+        </ul>
+
+        <!-- 扫描结果 -->
+        <div class="tab-content" id="myTabContent">
+            <div 
+                class="tab-pane fade show active" 
+                id="result" 
+                role="tabpanel" 
+                aria-labelledby="result-tab"
+            >
+                <div class="result-section">
+                    <div class="result-header d-flex justify-content-between align-items-center mb-4">
+                        <h2>扫描结果</h2>
+                        <span v-if="result.scan_time" class="text-muted">{{ result.scan_time }}</span>
+                    </div>
+
+                    <!-- 风险等级概览 -->
+                    <div v-if="result.risk_level" class="mb-4">
+                        <div class="alert" :class="getRiskClass(result.risk_level)">
+                            <h5>{{ getRiskTitle(result.risk_level) }}</h5>
+                            <p>{{ getRiskDescription(result.risk_level) }}</p>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <!-- 基本信息 -->
+                        <div class="col-md-6 mb-4">
+                            <div class="result-card">
+                                <div class="result-card-header">
+                                    <h3>基本信息</h3>
+                                </div>
+                                <div class="result-card-body">
+                                    <div class="mb-2">
+                                        <strong>目标:</strong> {{ result.target || '-' }}
+                                    </div>
+                                    <div class="mb-2">
+                                        <strong>IP地址:</strong> {{ result.ip || '-' }}
+                                    </div>
+                                    <div class="mb-2">
+                                        <strong>URL:</strong> {{ result.url || '-' }}
+                                    </div>
+                                    <div class="mb-2">
+                                        <strong>状态码:</strong> 
+                                        <span class="tag" :class="getStatusClass(result.status_code)">
+                                            {{ result.status_code || '-' }}
+                                        </span>
+                                    </div>
+                                    <div class="mb-2">
+                                        <strong>安全防护:</strong> 
+                                        <span v-for="(waf, index) in result.waf_info" :key="index" class="tag">
+                                            {{ waf }}
+                                        </span>
+                                        <span v-if="!result.waf_info || result.waf_info.length === 0" class="text-muted">
+                                            未检测到WAF
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 服务器信息 -->
+                        <div class="col-md-6 mb-4">
+                            <div class="result-card">
+                                <div class="result-card-header">
+                                    <h3>服务器信息</h3>
+                                </div>
+                                <div class="result-card-body">
+                                    <span v-for="(server, index) in result.server_info" :key="index" class="tag">
+                                        {{ server }}
+                                    </span>
+                                    <span v-if="!result.server_info || result.server_info.length === 0" class="text-muted">
+                                        未识别到服务器类型
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- CMS框架 -->
+                        <div class="col-md-6 mb-4">
+                            <div class="result-card">
+                                <div class="result-card-header">
+                                    <h3>CMS框架</h3>
+                                </div>
+                                <div class="result-card-body">
+                                    <span v-for="(cms, index) in result.cms_info" :key="index" class="tag">
+                                        {{ cms }}
+                                    </span>
+                                    <span v-if="!result.cms_info || result.cms_info.length === 0" class="text-muted">
+                                        未识别到CMS框架
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 编程语言 -->
+                        <div class="col-md-6 mb-4">
+                            <div class="result-card">
+                                <div class="result-card-header">
+                                    <h3>编程语言</h3>
+                                </div>
+                                <div class="result-card-body">
+                                    <span v-for="(lang, index) in result.programming_languages" :key="index" class="tag">
+                                        {{ lang }}
+                                    </span>
+                                    <span v-if="!result.programming_languages || result.programming_languages.length === 0" class="text-muted">
+                                        未识别到编程语言
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 中间件 -->
+                        <div class="col-md-6 mb-4">
+                            <div class="result-card">
+                                <div class="result-card-header">
+                                    <h3>中间件</h3>
+                                </div>
+                                <div class="result-card-body">
+                                    <span v-for="(middleware, index) in result.middleware" :key="index" class="tag">
+                                        {{ middleware }}
+                                    </span>
+                                    <span v-if="!result.middleware || result.middleware.length === 0" class="text-muted">
+                                        未识别到中间件
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 开放端口 -->
+                        <div class="col-md-6 mb-4">
+                            <div class="result-card">
+                                <div class="result-card-header">
+                                    <h3>开放端口</h3>
+                                </div>
+                                <div class="result-card-body">
+                                    <div v-for="(port, index) in result.open_ports" :key="index" class="port-item">
+                                        <span>{{ port.port }}</span>
+                                        <span>{{ port.service }}</span>
+                                    </div>
+                                    <span v-if="!result.open_ports || result.open_ports.length === 0" class="text-muted">
+                                        未发现开放端口
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 子域名 -->
+                        <div class="col-md-6 mb-4">
+                            <div class="result-card">
+                                <div class="result-card-header">
+                                    <h3>子域名</h3>
+                                </div>
+                                <div class="result-card-body">
+                                    <div v-for="(subdomain, index) in result.subdomains" :key="index" class="subdomain-item">
+                                        {{ subdomain }}
+                                    </div>
+                                    <span v-if="!result.subdomains || result.subdomains.length === 0" class="text-muted">
+                                        未发现子域名
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- CDN 信息 -->
+                        <div class="col-md-6 mb-4">
+                            <div class="result-card">
+                                <div class="result-card-header">
+                                    <h3>CDN 信息</h3>
+                                </div>
+                                <div class="result-card-body">
+                                    <span v-for="(cdn, index) in cdnList" :key="index" class="tag">
+                                        {{ cdn }}
+                                    </span>
+                                    <span v-if="cdnList.length === 0" class="text-muted">
+                                        未检测到 CDN
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 漏洞信息 -->
+                        <div class="col-12 mb-4">
+                            <div class="result-card">
+                                <div class="result-card-header">
+                                    <h3>漏洞信息</h3>
+                                </div>
+                                <div class="result-card-body">
+                                    <div v-for="(vuln, index) in result.vulnerabilities" :key="index" class="vulnerability-item risk-high">
+                                        {{ vuln }}
+                                    </div>
+                                    <span v-if="!result.vulnerabilities || result.vulnerabilities.length === 0" class="text-muted">
+                                        未检测到漏洞
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- WHOIS 信息 -->
+                        <div class="col-12 mb-4">
+                            <div class="result-card">
+                                <div class="result-card-header">
+                                    <h3>WHOIS 信息</h3>
+                                </div>
+                                <div class="result-card-body">
+                                    <div v-for="(value, key) in result.whois_info" :key="key" class="whois-item">
+                                        <span class="whois-label">{{ key }}:</span>
+                                        <span>{{ value }}</span>
+                                    </div>
+                                    <span v-if="!result.whois_info || Object.keys(result.whois_info).length === 0" class="text-muted">
+                                        未获取到 WHOIS 信息
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 敏感目录 -->
+                        <div class="col-12 mb-4">
+                            <div class="result-card">
+                                <div class="result-card-header">
+                                    <h3>敏感目录</h3>
+                                </div>
+                                <div class="result-card-body">
+                                    <div v-for="(path, index) in result.sensitive_paths" :key="index" class="path-item">
+                                        <span>{{ path.path }}</span>
+                                        <span class="tag" :class="getPathStatusClass(path.status)">
+                                            {{ path.status }}
+                                        </span>
+                                    </div>
+                                    <span v-if="!result.sensitive_paths || result.sensitive_paths.length === 0" class="text-muted">
+                                        未发现敏感目录
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 导出按钮 -->
+                    <div class="export-buttons d-flex flex-wrap gap-2 mt-4">
+                        <button 
+                            class="btn btn-outline-primary"
+                            @click="exportReport('pdf')"
+                            :disabled="!result.target"
+                        >
+                            导出 PDF 报告
+                        </button>
+                        <button 
+                            class="btn btn-outline-primary"
+                            @click="exportReport('json')"
+                            :disabled="!result.target"
+                        >
+                            导出 JSON 报告
+                        </button>
+                        <button 
+                            class="btn btn-outline-primary"
+                            @click="exportReport('csv')"
+                            :disabled="!result.target"
+                        >
+                            导出 CSV 报告
+                        </button>
+                        <button 
+                            class="btn btn-outline-primary"
+                            @click="exportReport('html')"
+                            :disabled="!result.target"
+                        >
+                            导出 HTML 报告
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 历史记录 -->
+            <div 
+                class="tab-pane fade" 
+                id="history" 
+                role="tabpanel" 
+                aria-labelledby="history-tab"
+            >
+                <div class="history-section">
+                    <h2>历史记录</h2>
+                    <div v-if="history.length === 0" class="text-muted">
+                        暂无历史记录
+                    </div>
+                    <table v-else class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>目标</th>
+                                <th>扫描时间</th>
+                                <th>扫描类型</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="(item, index) in history" :key="index">
+                                <td>{{ item.target }}</td>
+                                <td>{{ item.scan_time }}</td>
+                                <td>{{ item.scan_type === 'full' ? '全面扫描' : '快速扫描' }}</td>
+                                <td>
+                                    <button 
+                                        class="btn btn-sm btn-primary"
+                                        @click="viewHistoryResult(item.result)"
+                                    >
+                                        查看结果
+                                    </button>
+                                    <button 
+                                        class="btn btn-sm btn-secondary ms-2"
+                                        @click="rescan(item.target)"
+                                    >
+                                        重新扫描
+                                    </button>
+                                    <button 
+                                        class="btn btn-sm btn-danger ms-2"
+                                        @click="deleteHistory(index)"
+                                    >
+                                        删除
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 页脚 -->
+        <footer class="mt-4 text-center text-muted">
+            <p>&copy; 2026 WebScanner. 仅供学习和研究使用。</p>
+        </footer>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const { createApp } = Vue;
+        
+        createApp({
+            data() {
+                return {
+                    // 扫描配置
+                    target: '',
+                    scanType: 'full',
+                    portRange: '1-1000',
+                    scanStrategy: 'tcp',
+                    batchTargets: '',
+                    
+                    // 扫描状态
+                    isScanning: false,
+                    progress: 0,
+                    progressMessage: '准备中...',
+                    logs: [],
+                    taskId: null,
+                    socket: null,
+                    
+                    // 错误信息
+                    errorMessage: '',
+                    targetError: '',
+                    
+                    // 扫描结果
+                    result: {},
+                    
+                    // 历史记录
+                    history: []
+                };
+            },
+            computed: {
+                cdnList() {
+                    const c = this.result && this.result.cdn_info;
+                    if (!c) return [];
+                    if (Array.isArray(c)) return c.map(String);
+                    if (typeof c === 'object') {
+                        const lines = [];
+                        if (c.cdn) lines.push('检测到 CDN');
+                        if (c.message) lines.push(String(c.message));
+                        if (c.ips && c.ips.length) lines.push('IP: ' + c.ips.join(', '));
+                        return lines.length ? lines : [];
+                    }
+                    return [String(c)];
+                }
+            },
+            mounted() {
+                // 初始化WebSocket连接
+                this.initWebSocket();
+            },
+            methods: {
+                // 初始化WebSocket连接
+                initWebSocket() {
+                    this.socket = io();
+                    
+                    this.socket.on('connect', () => {
+                        console.log('WebSocket连接成功');
+                    });
+                    
+                    this.socket.on('message', (data) => {
+                        console.log('收到消息:', data);
+                    });
+                    
+                    this.socket.on('scan_update', (data) => {
+                        if (!this.isScanning) return;
+                        if (this.taskId && data.task_id !== this.taskId) return;
+                        if (!this.taskId) this.taskId = data.task_id;
+                        this.progress = data.progress;
+                        this.progressMessage = data.message;
+                        this.addLog('info', data.message);
+                    });
+                    
+                    this.socket.on('scan_complete', (data) => {
+                        if (!this.isScanning) return;
+                        if (this.taskId && data.task_id !== this.taskId) return;
+                        if (!this.taskId) this.taskId = data.task_id;
+                        this.isScanning = false;
+                        this.progress = 100;
+                        this.result = data.result;
+                        this.addLog('success', '扫描完成');
+                        this.loadHistory();
+                    });
+                    
+                    this.socket.on('scan_error', (data) => {
+                        if (!this.isScanning) return;
+                        if (this.taskId && data.task_id !== this.taskId) return;
+                        if (!this.taskId) this.taskId = data.task_id;
+                        this.isScanning = false;
+                        this.addLog('error', '扫描失败: ' + data.error);
+                        this.errorMessage = data.error;
+                    });
+                },
+                
+                // 验证目标输入
+                validateTarget() {
+                    this.targetError = '';
+                    const target = this.target.trim();
+                    
+                    if (!target) {
+                        return;
+                    }
+                    
+                    // IP地址正则
+                    const ipRegex = /^((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)$/;
+                    // 域名正则
+                    const domainRegex = /^[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$/;
+                    // URL正则
+                    const urlRegex = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/;
+                    
+                    if (!ipRegex.test(target) && !domainRegex.test(target) && !urlRegex.test(target)) {
+                        this.targetError = '请输入合法的 IP 地址、域名或 URL';
+                    }
+                    
+                    // 检查特殊字符
+                    const specialChars = /[<>/&|]/;
+                    if (specialChars.test(target)) {
+                        this.targetError = '目标不能包含特殊字符';
+                    }
+                },
+                
+                // 开始扫描
+                async startScan() {
+                    this.errorMessage = '';
+                    this.validateTarget();
+                    
+                    if (this.targetError) {
+                        return;
+                    }
+                    
+                    const target = this.target.trim();
+                    if (!target && !this.batchTargets.trim()) {
+                        this.errorMessage = '请输入目标域名或IP';
+                        return;
+                    }
+                    
+                    this.isScanning = true;
+                    this.taskId = null;
+                    this.progress = 0;
+                    this.progressMessage = '准备中...';
+                    this.logs = [];
+                    this.result = {};
+                    
+                    try {
+                        let response;
+                        if (this.batchTargets.trim()) {
+                            // 批量扫描
+                            response = await fetch('/api/scan', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    target: target,
+                                    scan_type: this.scanType,
+                                    port_range: this.portRange,
+                                    scan_strategy: this.scanStrategy
+                                })
+                            });
+                        } else {
+                            // 单个目标扫描
+                            response = await fetch('/api/scan', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    target: target,
+                                    scan_type: this.scanType,
+                                    port_range: this.portRange,
+                                    scan_strategy: this.scanStrategy
+                                })
+                            });
+                        }
+                        
+                        const data = await response.json();
+                        
+                        if (response.ok) {
+                            this.taskId = data.task_id;
+                            this.addLog('info', data.message);
+                        } else {
+                            this.isScanning = false;
+                            this.errorMessage = data.error || '扫描失败';
+                            this.addLog('error', '扫描失败: ' + this.errorMessage);
+                        }
+                    } catch (error) {
+                        this.isScanning = false;
+                        this.errorMessage = '网络错误: ' + error.message;
+                        this.addLog('error', '网络错误: ' + error.message);
+                    }
+                },
+                
+                // 停止扫描
+                stopScan() {
+                    this.isScanning = false;
+                    this.addLog('warning', '扫描已停止');
+                },
+                
+                // 添加日志
+                addLog(type, message) {
+                    this.logs.push({ type, message, time: new Date().toLocaleTimeString() });
+                    // 限制日志数量
+                    if (this.logs.length > 100) {
+                        this.logs.shift();
+                    }
+                    // 滚动到底部
+                    setTimeout(() => {
+                        const logSection = document.querySelector('.log-section');
+                        if (logSection) {
+                            logSection.scrollTop = logSection.scrollHeight;
+                        }
+                    }, 100);
+                },
+                
+                // 加载历史记录
+                async loadHistory() {
+                    try {
+                        const response = await fetch('/api/history');
+                        const data = await response.json();
+                        this.history = data;
+                    } catch (error) {
+                        console.error('加载历史记录失败:', error);
+                    }
+                },
+                
+                // 查看历史记录结果
+                viewHistoryResult(result) {
+                    this.result = result;
+                    // 切换到结果标签页
+                    document.querySelector('#result-tab').click();
+                },
+                
+                // 重新扫描
+                rescan(target) {
+                    this.target = target;
+                    this.startScan();
+                },
+                
+                // 删除历史记录
+                deleteHistory(index) {
+                    this.history.splice(index, 1);
+                },
+                
+                // 导出报告（携带当前页扫描结果，避免服务端再扫一遍导致失败或超时）
+                async exportReport(format) {
+                    const target = this.target.trim();
+                    const res = this.result && this.result.target ? this.result : null;
+                    if (!target && !res) {
+                        this.errorMessage = '请先扫描一个目标';
+                        return;
+                    }
+                    
+                    try {
+                        const response = await fetch(`/api/export_${format}`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                target: (res && res.target) || target,
+                                result: res && Object.keys(res).length ? res : undefined
+                            })
+                        });
+                        
+                        const cd = response.headers.get('Content-Disposition') || '';
+                        let fname = '';
+                        const m = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(cd);
+                        if (m && m[1]) fname = m[1].replace(/['"]/g, '');
+                        
+                        if (response.ok) {
+                            const blob = await response.blob();
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            const base = (res && res.target) || target;
+                            a.download = fname || `webscan_report_${String(base).replace(/\W+/g, '_')}.${format}`;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            window.URL.revokeObjectURL(url);
+                            this.addLog('success', `已下载 ${format.toUpperCase()} 报告`);
+                        } else {
+                            let errText = '导出失败';
+                            try {
+                                const err = await response.json();
+                                errText = err.error || errText;
+                            } catch (e) {
+                                errText = response.statusText || errText;
+                            }
+                            this.errorMessage = errText;
+                        }
+                    } catch (error) {
+                        this.errorMessage = '导出失败: ' + error.message;
+                    }
+                },
+                
+                // 获取风险等级样式
+                getRiskClass(level) {
+                    switch (level) {
+                        case 'high': return 'alert-danger';
+                        case 'medium': return 'alert-warning';
+                        case 'low': return 'alert-success';
+                        default: return 'alert-info';
+                    }
+                },
+                
+                // 获取风险等级标题
+                getRiskTitle(level) {
+                    switch (level) {
+                        case 'high': return '高风险';
+                        case 'medium': return '中风险';
+                        case 'low': return '低风险';
+                        default: return '信息级';
+                    }
+                },
+                
+                // 获取风险等级描述
+                getRiskDescription(level) {
+                    switch (level) {
+                        case 'high': return '发现高风险漏洞，建议立即修复';
+                        case 'medium': return '发现中风险问题，建议及时处理';
+                        case 'low': return '发现低风险问题，可在适当时候处理';
+                        default: return '无明显风险，建议定期检查';
+                    }
+                },
+                
+                // 获取状态码样式
+                getStatusClass(statusCode) {
+                    if (!statusCode) return '';
+                    if (statusCode >= 200 && statusCode < 300) return 'risk-low';
+                    if (statusCode >= 300 && statusCode < 400) return 'risk-info';
+                    if (statusCode >= 400 && statusCode < 500) return 'risk-medium';
+                    return 'risk-high';
+                },
+                
+                // 获取路径状态样式
+                getPathStatusClass(status) {
+                    switch (status) {
+                        case 'accessible': return 'risk-high';
+                        case 'forbidden': return 'risk-medium';
+                        case 'redirect': return 'risk-low';
+                        default: return 'risk-info';
+                    }
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

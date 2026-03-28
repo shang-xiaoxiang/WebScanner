@@ -120,13 +120,62 @@
       "headers": ["X-Powered-By: ThinkPHP"],
       "keywords": ["thinkphp", "think_"],
       "meta_tags": [],
-      "paths": ["/thinkphp/", "/Public/"]
+      "paths": ["/thinkphp/", "/Public/", "/application/", "/runtime/"],
+      "status_codes": [404]
     },
     "Laravel": {
       "headers": ["X-Powered-By: Laravel"],
-      "keywords": ["laravel", "Laravel"],
+      "keywords": ["laravel", "Laravel", "Illuminate"],
       "meta_tags": [],
-      "paths": ["/vendor/", "/storage/"]
+      "paths": ["/vendor/", "/storage/", "/public/", "/artisan"]
+    },
+    "Spring Boot": {
+      "headers": ["X-Application-Context"],
+      "keywords": ["spring", "boot", "Whitelabel Error Page"],
+      "meta_tags": [],
+      "paths": ["/actuator/", "/error", "/swagger-ui.html", "/v2/api-docs"]
+    },
+    "Django": {
+      "headers": ["X-Powered-By: Django"],
+      "keywords": ["django", "Django", "admin"],
+      "meta_tags": [],
+      "paths": ["/admin/", "/static/", "/media/"]
+    },
+    "Vue": {
+      "headers": [],
+      "keywords": ["vue", "Vue", "v-for", "v-if", "v-model"],
+      "meta_tags": [["generator", "Vue"]],
+      "paths": ["/index.html", "/static/", "/dist/"]
+    },
+    "React": {
+      "headers": [],
+      "keywords": ["react", "React", "jsx", "create-react-app"],
+      "meta_tags": [],
+      "paths": ["/index.html", "/static/", "/build/"]
+    },
+    "Angular": {
+      "headers": [],
+      "keywords": ["angular", "Angular", "ng-app", "ng-controller"],
+      "meta_tags": [["generator", "Angular"]],
+      "paths": ["/index.html", "/static/", "/dist/"]
+    },
+    "UniApp": {
+      "headers": [],
+      "keywords": ["uni-app", "UniApp", "uView"],
+      "meta_tags": [],
+      "paths": ["/manifest.json", "/pages/", "/static/"]
+    },
+    "Hikvision": {
+      "headers": ["Server: Hikvision-Webs"],
+      "keywords": ["hikvision", "Hikvision", "DS-"],
+      "meta_tags": [],
+      "paths": ["/ISAPI/", "/doc/page/login.asp", "/webpages/"]
+    },
+    "Dahua": {
+      "headers": ["Server: Dahua-Webs"],
+      "keywords": ["dahua", "Dahua"],
+      "meta_tags": [],
+      "paths": ["/cgi-bin/", "/doc/page/login.asp", "/webpages/"]
     },
     "Vue Admin": {
       "headers": [],
@@ -145,12 +194,6 @@
       "keywords": ["struts2", "struts.action.extension"],
       "meta_tags": [],
       "paths": ["/struts/", "/WEB-INF/"]
-    },
-    "Spring Boot": {
-      "headers": ["X-Application-Context"],
-      "keywords": ["spring", "boot"],
-      "meta_tags": [],
-      "paths": ["/actuator/", "/error"]
     },
     "Magento": {
       "headers": ["X-Magento-Vary:"],

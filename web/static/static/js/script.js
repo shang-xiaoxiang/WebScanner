@@ -306,7 +306,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         
         // 销毁旧图表
-        if (window.portChart) {
+        if (window.portChart && typeof window.portChart.destroy === 'function') {
             window.portChart.destroy();
         }
         

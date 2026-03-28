@@ -1,0 +1,326 @@
+# 默认指纹规则
+
+servers:
+  Apache:
+    headers:
+      - "Server: Apache"
+      - "Server: Apache/"
+    keywords:
+      - "Apache"
+    meta_tags: []
+    paths: []
+  Nginx:
+    headers:
+      - "Server: nginx"
+    keywords:
+      - "nginx"
+    meta_tags: []
+    paths: []
+  IIS:
+    headers:
+      - "Server: Microsoft-IIS"
+    keywords:
+      - "IIS"
+    meta_tags: []
+    paths: []
+  Lighttpd:
+    headers:
+      - "Server: lighttpd"
+    keywords:
+      - "lighttpd"
+    meta_tags: []
+    paths: []
+
+cms:
+  WordPress:
+    headers: []
+    keywords:
+      - "WordPress"
+      - "wp-content"
+      - "wp-includes"
+    meta_tags:
+      - ["generator", "WordPress"]
+    paths:
+      - "/wp-admin/"
+      - "/wp-content/"
+      - "/wp-includes/"
+  Drupal:
+    headers: []
+    keywords:
+      - "Drupal"
+      - "drupal"
+    meta_tags:
+      - ["generator", "Drupal"]
+    paths:
+      - "/sites/"
+      - "/modules/"
+      - "/themes/"
+  Joomla:
+    headers: []
+    keywords:
+      - "Joomla"
+      - "joomla"
+    meta_tags:
+      - ["generator", "Joomla"]
+    paths:
+      - "/administrator/"
+      - "/components/"
+      - "/modules/"
+  ThinkPHP:
+    headers: []
+    keywords:
+      - "ThinkPHP"
+      - "thinkphp"
+    meta_tags: []
+    paths:
+      - "/ThinkPHP/"
+      - "/Application/"
+      - "/Public/"
+    status_codes:
+      - 404
+  Laravel:
+    headers: []
+    keywords:
+      - "Laravel"
+      - "laravel"
+    meta_tags: []
+    paths:
+      - "/vendor/laravel/"
+      - "/storage/"
+      - "/bootstrap/"
+  SpringBoot:
+    headers:
+      - "X-Application-Context"
+    keywords:
+      - "Whitelabel Error Page"
+      - "Spring Boot"
+    meta_tags: []
+    paths:
+      - "/actuator/"
+      - "/swagger-ui.html"
+      - "/v2/api-docs"
+  Django:
+    headers:
+      - "X-Powered-By: Django"
+    keywords:
+      - "django"
+      - "Django"
+      - "admin"
+    meta_tags: []
+    paths:
+      - "/admin/"
+      - "/static/"
+      - "/media/"
+
+programming_languages:
+  PHP:
+    headers:
+      - "X-Powered-By: PHP"
+    keywords:
+      - "php"
+      - "PHP"
+    meta_tags: []
+    cookies:
+      - "PHPSESSID"
+  Python:
+    headers:
+      - "X-Powered-By: Python"
+      - "Server: WSGIServer"
+    keywords:
+      - "python"
+      - "Python"
+    meta_tags: []
+  Java:
+    headers:
+      - "Server: Apache-Coyote"
+      - "X-Powered-By: JSP/"
+    keywords:
+      - "java"
+      - "Java"
+    meta_tags: []
+  Node.js:
+    headers:
+      - "X-Powered-By: Express"
+      - "Server: Node.js"
+    keywords:
+      - "node.js"
+      - "Node.js"
+    meta_tags: []
+
+middleware:
+  Tomcat:
+    headers:
+      - "Server: Apache-Coyote"
+    keywords:
+      - "Tomcat"
+      - "tomcat"
+    paths:
+      - "/manager/"
+      - "/host-manager/"
+    ports:
+      - 8080
+      - 8443
+  Redis:
+    ports:
+      - 6379
+  MySQL:
+    ports:
+      - 3306
+  MongoDB:
+    ports:
+      - 27017
+  PostgreSQL:
+    ports:
+      - 5432
+  Memcached:
+    ports:
+      - 11211
+  RabbitMQ:
+    ports:
+      - 5672
+      - 15672
+  Elasticsearch:
+    ports:
+      - 9200
+      - 9300
+
+waf:
+  Cloudflare:
+    headers:
+      - "Server: cloudflare"
+      - "CF-RAY"
+    keywords:
+      - "cloudflare"
+  ModSecurity:
+    headers:
+      - "Server: ModSecurity"
+    keywords:
+      - "ModSecurity"
+  AWS WAF:
+    headers:
+      - "X-Amzn-Waf-Error-Code"
+    keywords:
+      - "AWS WAF"
+
+frontend_frameworks:
+  Vue:
+    keywords:
+      - "vue"
+      - "Vue"
+      - "v-for"
+      - "v-if"
+      - "v-model"
+    meta_tags:
+      - ["generator", "Vue"]
+    paths:
+      - "/index.html"
+      - "/static/"
+      - "/dist/"
+  React:
+    keywords:
+      - "react"
+      - "React"
+      - "ReactDOM"
+    meta_tags:
+      - ["generator", "React"]
+    paths:
+      - "/static/js/"
+      - "/static/css/"
+  Angular:
+    keywords:
+      - "angular"
+      - "Angular"
+      - "ng-app"
+    meta_tags:
+      - ["generator", "Angular"]
+    paths:
+      - "/angular/"
+      - "/node_modules/@angular/"
+
+mobile_frameworks:
+  UniApp:
+    keywords:
+      - "uni-app"
+      - "UniApp"
+    paths:
+      - "/uni-app/"
+
+industrial_devices:
+  Hikvision:
+    headers:
+      - "Server: Hikvision-Webs"
+    keywords:
+      - "hikvision"
+      - "Hikvision"
+      - "DS-"
+    paths:
+      - "/ISAPI/"
+      - "/doc/page/login.asp"
+      - "/webpages/"
+  Dahua:
+    headers:
+      - "Server: Dahua"
+    keywords:
+      - "dahua"
+      - "Dahua"
+    paths:
+      - "/cgi-bin/"
+      - "/web/"
+
+common_ports:
+  "21": "FTP"
+  "22": "SSH"
+  "23": "Telnet"
+  "25": "SMTP"
+  "53": "DNS"
+  "80": "HTTP"
+  "443": "HTTPS"
+  "3306": "MySQL"
+  "3389": "RDP"
+  "5432": "PostgreSQL"
+  "6379": "Redis"
+  "8080": "HTTP-Proxy"
+  "8443": "HTTPS-Proxy"
+  "9200": "Elasticsearch"
+  "27017": "MongoDB"
+
+敏感目录:
+  - "/admin/"
+  - "/login/"
+  - "/signin/"
+  - "/auth/"
+  - "/wp-login.php"
+  - "/administrator/"
+  - "/robots.txt"
+  - "/sitemap.xml"
+  - "/backup/"
+  - "/backup.zip"
+  - "/backup.tar.gz"
+  - "/config/"
+  - "/config.php"
+  - "/settings.php"
+  - "/.env"
+  - "/.git/"
+  - "/.svn/"
+  - "/logs/"
+  - "/error_log"
+  - "/phpinfo.php"
+  - "/info.php"
+  - "/test.php"
+  - "/debug.php"
+  - "/uploads/"
+  - "/downloads/"
+  - "/files/"
+  - "/images/"
+  - "/css/"
+  - "/js/"
+  - "/vendor/"
+  - "/node_modules/"
+  - "/composer.json"
+  - "/package.json"
+  - "/requirements.txt"
+  - "/Gemfile"
+  - "/Dockerfile"
+  - "/docker-compose.yml"
+  - "/README.md"
+  - "/LICENSE"
