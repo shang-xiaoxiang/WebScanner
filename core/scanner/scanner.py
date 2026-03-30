@@ -4,6 +4,10 @@ from urllib.parse import urlparse
 from core.scanner.port_scanner import PortScanner
 from core.scanner.dir_scanner import DirScanner
 from core.scanner.fingerprint import FingerprintDB
+from core.scanner.business_logic_scanner import BusinessLogicScanner
+from core.scanner.waf_detector import WAFDetector
+from core.scanner.attack_surface_mapper import AttackSurfaceMapper
+from core.ai.ai_report_generator import AIReportGenerator
 from core.collector.subdomain import SubdomainCollector
 from core.collector.whois import WhoisCollector
 from core.collector.asset import AssetCollector
@@ -16,6 +20,10 @@ class WebScanner:
         self.fingerprint_db = FingerprintDB()
         self.port_scanner = PortScanner()
         self.dir_scanner = DirScanner()
+        self.business_logic_scanner = BusinessLogicScanner()
+        self.waf_detector = WAFDetector()
+        self.attack_surface_mapper = AttackSurfaceMapper()
+        self.ai_report_generator = AIReportGenerator()
         self.subdomain_collector = SubdomainCollector()
         self.whois_collector = WhoisCollector()
         self.asset_collector = AssetCollector()
@@ -29,7 +37,7 @@ class WebScanner:
         """从文件加载敏感目录字典"""
         return self.dir_scanner.load_dictionary_from_file(file_path)
     
-    def scan(self, target):
+    def scan(self, target, callback=None):
         logger.info(f'开始扫描目标: {target}')
         result = {
             'target': target,
@@ -48,21 +56,33 @@ class WebScanner:
             'scan_time': time.strftime('%Y-%m-%d %H:%M:%S')
         }
         
+        if callback:
+            callback(10, '正在解析目标...')
+        
         url = self._normalize_url(target)
         if url:
             result['url'] = url
             logger.info(f'标准化URL: {url}')
             
+            if callback:
+                callback(15, '正在进行HTTP扫描...')
+            
             http_result = self._scan_http(url)
             result.update(http_result)
             
             # 子域名探测
+            if callback:
+                callback(25, '正在探测子域名...')
+            
             logger.info('开始子域名探测')
             subdomains = self.subdomain_collector.detect(target)
             result['subdomains'] = subdomains
             logger.info(f'发现子域名: {len(subdomains)}个')
             
             # CDN 识别
+            if callback:
+                callback(35, '正在识别CDN...')
+            
             logger.info('开始CDN识别')
             cdn_info = self.asset_collector.detect_cdn(url)
             result['cdn_info'] = cdn_info
@@ -70,6 +90,9 @@ class WebScanner:
                 logger.info(f'检测到CDN: {cdn_info}')
             
             # 漏洞初步检测
+            if callback:
+                callback(45, '正在检测漏洞...')
+            
             logger.info('开始漏洞初步检测')
             vulnerabilities = self.asset_collector.detect_vulnerabilities(url)
             result['vulnerabilities'] = vulnerabilities
@@ -77,11 +100,17 @@ class WebScanner:
                 logger.warning(f'发现可能的漏洞: {vulnerabilities}')
             
             # WHOIS 信息查询
+            if callback:
+                callback(55, '正在查询WHOIS信息...')
+            
             logger.info('开始WHOIS信息查询')
             whois_info = self.whois_collector.get_info(target)
             result['whois_info'] = whois_info
         
         # 扫描端口
+        if callback:
+            callback(65, '正在扫描端口...')
+        
         logger.info('开始端口扫描')
         ports = self.port_scanner.scan(result['ip'], self.fingerprint_db.get_common_ports())
         result['open_ports'] = ports
@@ -90,6 +119,9 @@ class WebScanner:
         # 从开放端口更新中间件识别
         open_port_numbers = [port['port'] for port in ports]
         if url and open_port_numbers:
+            if callback:
+                callback(70, '正在更新中间件识别...')
+            
             try:
                 response = requests.get(url, timeout=self.timeout, allow_redirects=True)
                 headers = dict(response.headers)
@@ -127,6 +159,44 @@ class WebScanner:
                     logger.info(f'识别到中间件: {middleware}')
             except Exception as e:
                 logger.debug(f'更新中间件识别失败: {e}')
+        
+        # 业务逻辑漏洞检测
+        if url:
+            if callback:
+                callback(75, '正在检测业务逻辑漏洞...')
+            
+            logger.info('开始业务逻辑漏洞检测')
+            business_logic_vulnerabilities = self.business_logic_scanner.scan(url)
+            result['business_logic_vulnerabilities'] = business_logic_vulnerabilities
+            logger.info(f'业务逻辑漏洞检测完成')
+        
+        # WAF检测
+        if url:
+            if callback:
+                callback(80, '正在检测WAF...')
+            
+            logger.info('开始WAF检测')
+            waf_info = self.waf_detector.detect(url)
+            result['waf_info'] = waf_info
+            logger.info(f'WAF检测完成: {waf_info.get("waf_detected", False)}')
+        
+        # 生成攻击面地图
+        if callback:
+            callback(85, '正在生成攻击面地图...')
+        
+        logger.info('开始生成攻击面地图')
+        attack_surface_map = self.attack_surface_mapper.generate_map(result)
+        result['attack_surface_map'] = attack_surface_map
+        logger.info(f'攻击面地图生成完成: {len(attack_surface_map.get("nodes", []))}个节点')
+        
+        # AI报告生成
+        if callback:
+            callback(90, '正在生成AI渗透测试报告...')
+        
+        logger.info('开始生成AI渗透测试报告')
+        ai_report = self.ai_report_generator.generate_report(result)
+        result['ai_report'] = ai_report
+        logger.info(f'AI报告生成完成: 风险等级={ai_report.get("risk_level", "unknown")}, 安全评分={ai_report.get("security_score", 0)}')
         
         logger.info(f'扫描完成，目标: {target}')
         return result

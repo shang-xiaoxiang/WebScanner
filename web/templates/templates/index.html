@@ -12,6 +12,8 @@
     <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <!-- ECharts -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <!-- Socket.io -->
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <style>
@@ -294,6 +296,22 @@
                 <div class="sidebar-nav-item" :class="{ 'active': currentPage === 'results' }" @click="currentPage = 'results'">
                     <i class="fas fa-chart-bar"></i>
                     <span>扫描结果</span>
+                </div>
+                <div class="sidebar-nav-item" :class="{ 'active': currentPage === 'ai_report' }" @click="currentPage = 'ai_report'">
+                    <i class="fas fa-robot"></i>
+                    <span>AI报告</span>
+                </div>
+                <div class="sidebar-nav-item" :class="{ 'active': currentPage === 'business_logic' }" @click="currentPage = 'business_logic'">
+                    <i class="fas fa-bug"></i>
+                    <span>业务逻辑漏洞</span>
+                </div>
+                <div class="sidebar-nav-item" :class="{ 'active': currentPage === 'waf' }" @click="currentPage = 'waf'">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>WAF检测</span>
+                </div>
+                <div class="sidebar-nav-item" :class="{ 'active': currentPage === 'attack_map' }" @click="currentPage = 'attack_map'">
+                    <i class="fas fa-project-diagram"></i>
+                    <span>攻击面地图</span>
                 </div>
                 <div class="sidebar-nav-item" :class="{ 'active': currentPage === 'history' }" @click="currentPage = 'history'">
                     <i class="fas fa-history"></i>
@@ -716,6 +734,275 @@
                 </div>
             </div>
 
+            <!-- AI报告页面 -->
+            <div v-if="currentPage === 'ai_report'">
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0"><i class="fas fa-robot me-2"></i>AI渗透测试报告</h5>
+                            </div>
+                            <div class="card-body">
+                                <div v-if="!result.ai_report" class="text-center py-5">
+                                    <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                                    <p class="text-muted">暂无AI报告，请先进行扫描</p>
+                                </div>
+                                <div v-else>
+                                    <div class="alert mb-4" :class="getRiskAlertClass(result.ai_report.risk_level)">
+                                        <h6 class="alert-heading">
+                                            <i class="fas fa-shield-alt me-2"></i>
+                                            风险等级: {{ getRiskTitle(result.ai_report.risk_level) }}
+                                        </h6>
+                                        <div class="mb-2">
+                                            <strong>安全评分:</strong> 
+                                            <span class="badge bg-primary ms-2">{{ result.ai_report.security_score }}/100</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="card mb-3">
+                                        <div class="card-header">
+                                            <h6 class="mb-0"><i class="fas fa-file-alt me-2"></i>完整报告</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div v-html="formatAIReport(result.ai_report.ai_report)" style="white-space: pre-wrap;"></div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="card mb-3">
+                                        <div class="card-header">
+                                            <h6 class="mb-0"><i class="fas fa-tools me-2"></i>修复建议</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <ul>
+                                                <li v-for="(suggestion, index) in result.ai_report.fix_suggestions" :key="index">
+                                                    {{ suggestion }}
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6 class="mb-0"><i class="fas fa-bug me-2"></i>漏洞详情</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <ul>
+                                                <li v-for="(detail, index) in result.ai_report.vulnerability_details" :key="index">
+                                                    {{ detail }}
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 业务逻辑漏洞页面 -->
+            <div v-if="currentPage === 'business_logic'">
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0"><i class="fas fa-bug me-2"></i>业务逻辑漏洞</h5>
+                            </div>
+                            <div class="card-body">
+                                <div v-if="!result.business_logic_vulnerabilities" class="text-center py-5">
+                                    <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                                    <p class="text-muted">暂无业务逻辑漏洞检测结果，请先进行扫描</p>
+                                </div>
+                                <div v-else>
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <div class="card">
+                                                <div class="card-header">
+                                                    <h6 class="mb-0"><i class="fas fa-user-lock me-2"></i>登录漏洞</h6>
+                                                </div>
+                                                <div class="card-body">
+                                                    <div v-if="result.business_logic_vulnerabilities.login_vulnerabilities && result.business_logic_vulnerabilities.login_vulnerabilities.length > 0">
+                                                        <div v-for="(vuln, index) in result.business_logic_vulnerabilities.login_vulnerabilities" :key="index" class="mb-2 risk-high">
+                                                            <strong>{{ vuln.type }}:</strong> {{ vuln.description }}
+                                                        </div>
+                                                    </div>
+                                                    <span v-else class="text-muted">未发现登录漏洞</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="col-md-6 mb-3">
+                                            <div class="card">
+                                                <div class="card-header">
+                                                    <h6 class="mb-0"><i class="fas fa-upload me-2"></i>上传漏洞</h6>
+                                                </div>
+                                                <div class="card-body">
+                                                    <div v-if="result.business_logic_vulnerabilities.upload_vulnerabilities && result.business_logic_vulnerabilities.upload_vulnerabilities.length > 0">
+                                                        <div v-for="(vuln, index) in result.business_logic_vulnerabilities.upload_vulnerabilities" :key="index" class="mb-2 risk-high">
+                                                            <strong>{{ vuln.type }}:</strong> {{ vuln.description }}
+                                                        </div>
+                                                    </div>
+                                                    <span v-else class="text-muted">未发现上传漏洞</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="col-md-6 mb-3">
+                                            <div class="card">
+                                                <div class="card-header">
+                                                    <h6 class="mb-0"><i class="fas fa-code me-2"></i>XSS漏洞</h6>
+                                                </div>
+                                                <div class="card-body">
+                                                    <div v-if="result.business_logic_vulnerabilities.xss_vulnerabilities && result.business_logic_vulnerabilities.xss_vulnerabilities.length > 0">
+                                                        <div v-for="(vuln, index) in result.business_logic_vulnerabilities.xss_vulnerabilities" :key="index" class="mb-2 risk-medium">
+                                                            <strong>{{ vuln.type }}:</strong> {{ vuln.description }}
+                                                        </div>
+                                                    </div>
+                                                    <span v-else class="text-muted">未发现XSS漏洞</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="col-md-6 mb-3">
+                                            <div class="card">
+                                                <div class="card-header">
+                                                    <h6 class="mb-0"><i class="fas fa-user-shield me-2"></i>管理员后台漏洞</h6>
+                                                </div>
+                                                <div class="card-body">
+                                                    <div v-if="result.business_logic_vulnerabilities.admin_vulnerabilities && result.business_logic_vulnerabilities.admin_vulnerabilities.length > 0">
+                                                        <div v-for="(vuln, index) in result.business_logic_vulnerabilities.admin_vulnerabilities" :key="index" class="mb-2 risk-high">
+                                                            <strong>{{ vuln.type }}:</strong> {{ vuln.description }}
+                                                        </div>
+                                                    </div>
+                                                    <span v-else class="text-muted">未发现管理员后台漏洞</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="col-md-6 mb-3">
+                                            <div class="card">
+                                                <div class="card-header">
+                                                    <h6 class="mb-0"><i class="fas fa-qrcode me-2"></i>验证码漏洞</h6>
+                                                </div>
+                                                <div class="card-body">
+                                                    <div v-if="result.business_logic_vulnerabilities.captcha_vulnerabilities && result.business_logic_vulnerabilities.captcha_vulnerabilities.length > 0">
+                                                        <div v-for="(vuln, index) in result.business_logic_vulnerabilities.captcha_vulnerabilities" :key="index" class="mb-2 risk-medium">
+                                                            <strong>{{ vuln.type }}:</strong> {{ vuln.description }}
+                                                        </div>
+                                                    </div>
+                                                    <span v-else class="text-muted">未发现验证码漏洞</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="col-12 mb-3">
+                                            <div class="card">
+                                                <div class="card-header">
+                                                    <h6 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>通用业务逻辑漏洞</h6>
+                                                </div>
+                                                <div class="card-body">
+                                                    <div v-if="result.business_logic_vulnerabilities.business_logic_issues && result.business_logic_vulnerabilities.business_logic_issues.length > 0">
+                                                        <div v-for="(vuln, index) in result.business_logic_vulnerabilities.business_logic_issues" :key="index" class="mb-2 risk-medium">
+                                                            <strong>{{ vuln.type }}:</strong> {{ vuln.description }}
+                                                        </div>
+                                                    </div>
+                                                    <span v-else class="text-muted">未发现通用业务逻辑漏洞</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- WAF检测页面 -->
+            <div v-if="currentPage === 'waf'">
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0"><i class="fas fa-shield-alt me-2"></i>WAF检测</h5>
+                            </div>
+                            <div class="card-body">
+                                <div v-if="!result.waf_info" class="text-center py-5">
+                                    <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                                    <p class="text-muted">暂无WAF检测结果，请先进行扫描</p>
+                                </div>
+                                <div v-else>
+                                    <div class="alert" :class="result.waf_info.waf_detected ? 'alert-warning' : 'alert-success'">
+                                        <h6 class="alert-heading">
+                                            <i class="fas fa-shield-alt me-2"></i>
+                                            {{ result.waf_info.waf_detected ? '检测到WAF' : '未检测到WAF' }}
+                                        </h6>
+                                        <p class="mb-0">
+                                            {{ result.waf_info.waf_detected ? `WAF类型: ${result.waf_info.waf_type}` : '目标网站未使用Web应用防火墙' }}
+                                        </p>
+                                    </div>
+                                    
+                                    <div v-if="result.waf_info.waf_detected" class="card mb-3">
+                                        <div class="card-header">
+                                            <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>WAF详情</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="mb-2">
+                                                <strong>WAF类型:</strong> {{ result.waf_info.waf_type }}
+                                            </div>
+                                            <div class="mb-2">
+                                                <strong>特征:</strong> {{ result.waf_info.waf_details.signature }}
+                                            </div>
+                                            <div class="mb-0">
+                                                <strong>位置:</strong> {{ result.waf_info.waf_details.location }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div v-if="result.waf_info.bypass_methods && result.waf_info.bypass_methods.length > 0" class="card">
+                                        <div class="card-header">
+                                            <h6 class="mb-0"><i class="fas fa-magic me-2"></i>绕过方法</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div v-for="(method, index) in result.waf_info.bypass_methods" :key="index" class="mb-2">
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <span><strong>{{ method.method }}:</strong> {{ method.description }}</span>
+                                                    <span class="badge" :class="method.success ? 'bg-success' : 'bg-danger'">
+                                                        {{ method.success ? '成功' : '失败' }}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 攻击面地图页面 -->
+            <div v-if="currentPage === 'attack_map'">
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0"><i class="fas fa-project-diagram me-2"></i>攻击面地图</h5>
+                            </div>
+                            <div class="card-body">
+                                <div v-if="!result.attack_surface_map" class="text-center py-5">
+                                    <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                                    <p class="text-muted">暂无攻击面地图，请先进行扫描</p>
+                                </div>
+                                <div v-else>
+                                    <div id="attack-surface-chart" style="width: 100%; height: 600px;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- 历史记录页面 -->
             <div v-if="currentPage === 'history'">
                 <div class="row">
@@ -1119,6 +1406,99 @@
                         case 'redirect': return 'risk-low';
                         default: return 'risk-info';
                     }
+                },
+                
+                // 格式化AI报告
+                formatAIReport(report) {
+                    if (!report) return '';
+                    return report.replace(/\n/g, '<br>');
+                },
+                
+                // 渲染攻击面地图
+                renderAttackSurfaceMap() {
+                    if (!this.result.attack_surface_map) return;
+                    
+                    const mapData = this.result.attack_surface_map;
+                    const chartDom = document.getElementById('attack-surface-chart');
+                    
+                    if (!chartDom) return;
+                    
+                    const myChart = echarts.init(chartDom);
+                    
+                    const option = {
+                        title: {
+                            text: '网站攻击面拓扑图',
+                            subtext: `目标: ${this.result.target || 'unknown'}`,
+                            top: 'bottom',
+                            left: 'right'
+                        },
+                        tooltip: {
+                            formatter: function (params) {
+                                return params.name;
+                            }
+                        },
+                        legend: {
+                            data: mapData.categories.map(cat => cat.name),
+                            top: 'bottom',
+                            left: 'center'
+                        },
+                        series: [
+                            {
+                                name: '攻击面',
+                                type: 'graph',
+                                layout: 'force',
+                                data: mapData.nodes,
+                                links: mapData.edges,
+                                categories: mapData.categories,
+                                roam: true,
+                                label: {
+                                    show: true,
+                                    position: 'right',
+                                    formatter: '{b}'
+                                },
+                                labelLayout: {
+                                    hideOverlap: true
+                                },
+                                scaleLimit: {
+                                    min: 0.4,
+                                    max: 2
+                                },
+                                lineStyle: {
+                                    color: 'source',
+                                    curveness: 0.3
+                                },
+                                force: {
+                                    repulsion: 300,
+                                    edgeLength: 100
+                                }
+                            }
+                        ]
+                    };
+                    
+                    myChart.setOption(option);
+                    
+                    window.addEventListener('resize', () => {
+                        myChart.resize();
+                    });
+                }
+            },
+            watch: {
+                currentPage(newVal) {
+                    if (newVal === 'attack_map') {
+                        this.$nextTick(() => {
+                            this.renderAttackSurfaceMap();
+                        });
+                    }
+                },
+                result: {
+                    handler(newVal) {
+                        if (newVal && newVal.attack_surface_map && this.currentPage === 'attack_map') {
+                            this.$nextTick(() => {
+                                this.renderAttackSurfaceMap();
+                            });
+                        }
+                    },
+                    deep: true
                 }
             }
         }).mount('#app');

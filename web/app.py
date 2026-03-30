@@ -111,12 +111,12 @@ def index():
 
 # WebSocket连接处理
 @socketio.on('connect')
-def handle_connect():
+def handle_connect(sid):
     logger.info('WebSocket客户端已连接')
     emit('message', {'data': '连接成功'})
 
 @socketio.on('disconnect')
-def handle_disconnect():
+def handle_disconnect(sid):
     logger.info('WebSocket客户端已断开连接')
 
 # 扫描任务管理器
@@ -253,7 +253,15 @@ def run_scan(task_id, target, scan_type, port_range, scan_strategy):
                 },
             )
 
-            result = scanner.scan(target)
+            result = scanner.scan(target, callback=lambda progress, message: _emit_socket(
+                "scan_update",
+                {
+                    "task_id": task_id,
+                    "status": "running",
+                    "progress": progress,
+                    "message": message,
+                },
+            ))
 
         _emit_socket(
             "scan_update",
